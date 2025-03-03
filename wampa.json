@@ -1,0 +1,4 @@
+{
+    "input_files": ["spec.md", "rules.md"],
+    "output_file": "combined.md"
+}
