@@ -62,13 +62,14 @@
 
 ### バージョン管理
 - Gitを使用してバージョン管理を行う
-- コミットメッセージは英語で記述する
-- コミットメッセージは[gitmoji](https://gitmoji.dev/)を使用して視覚的に分類する
-  - ✨ (`:sparkles:`) - 新機能の追加
-  - 🐛 (`:bug:`) - バグ修正
-  - ♻️ (`:recycle:`) - コードのリファクタリング
-  - 📝 (`:memo:`) - ドキュメント更新
-  - ✅ (`:white_check_mark:`) - テストの追加・更新
+- コミットメッセージは英語で記述し、[gitmoji](https://gitmoji.dev/)を使用して視覚的に分類する
+  - ✨ (`:sparkles:`) - New features
+  - 🐛 (`:bug:`) - Bug fixes
+  - ♻️ (`:recycle:`) - Code refactoring
+  - 📝 (`:memo:`) - Documentation updates
+  - ✅ (`:white_check_mark:`) - Adding or updating tests
+- コミットメッセージは `emoji Short description in English` の形式で記述する
+  例: `📝 Add technical requirements documentation`
 
 ### コードフォーマットとリンター
 - フォーマッター: `gofmt` および `goimports` を使用
