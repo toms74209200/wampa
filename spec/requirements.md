@@ -5,7 +5,9 @@
   - ファイル監視: `fsnotify`パッケージまたはOSのsystem callを使用
   - ファイル操作: `os`、`io/fs`パッケージ
   - HTTP/HTTPS: `net/http`パッケージ
-  - 設定ファイル解析: `encoding/toml`パッケージ
+  - 設定ファイル解析: 
+    - 最終目標: `encoding/toml`パッケージ（Go 2.0で導入予定）
+    - 暫定対応: `encoding/json`パッケージを使用し、後にTOMLに移行
   - コマンドライン引数: `flag`パッケージ
 
 ## アーキテクチャ設計
@@ -20,11 +22,38 @@
 
 ## テスト戦略
 
+### テストの分類と実行
+テストは以下のビルドタグで分類し、適切な環境で実行する：
+
+1. テストファイル先頭のビルドタグ指定
+   ```go
+   //go:build small
+   ```
+
+2. テスト実行方法
+   ```bash
+   # Small Tests
+   go test -tags=small ./...
+
+   # Acceptance Tests
+   # Feature filesに基づいて実行
+   ```
+
 ### 単体テスト (Small Tests)
 - 各関数の入出力をテストするテーブル駆動テスト
 - 参照透過性を持つ純粋関数の振る舞いを検証
 - モックを最小限にとどめたテスト設計
 - `testing`パッケージを使用
+- テストにはビルドタグ `small` を付与
+- Small Testの制約（[Google Testing Blog](https://testing.googleblog.com/2010/12/test-sizes.html)参照）：
+  - 単一のプロセスで実行される
+  - ネットワークアクセスを行わない
+  - ファイルシステムにアクセスしない
+  - システムコールを行わない
+  - 外部プロセスの起動を行わない
+  - 並行処理を行わない
+  - スリープやタイムアウトを使用しない
+  - テストの実行時間は数ミリ秒以内
 
 以下の機能に対して小さな単位でテストを行う：
 - ファイル内容の読み込みと解析処理
@@ -86,6 +115,34 @@
 - リンター: `golangci-lint` を使用
   - 基本設定: `golangci-lint run --enable=gofmt,goimports,gosimple,govet,staticcheck`
   - プロジェクトルート直下に `.golangci.yml` で設定を管理
+  - 開発環境では以下のコマンドでインストールする:
+    ```bash
+    # 最新バージョンをインストール
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+    
+    # または特定バージョン（CI環境と同じ）をインストール
+    go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+    ```
+  - 開発中は以下のいずれかの方法でlintを実行する:
+    ```bash
+    # 直接実行
+    golangci-lint run
+    
+    # または、Makefileを使用して実行
+    make lint
+    ```
+  - コミット前に必ずlintエラーがないことを確認する
+
+### 開発用Makefileの使用
+- プロジェクトルートのMakefileに共通タスクが定義されている
+- 主なターゲット:
+  - `make build`: プロジェクトをビルド
+  - `make test`: small testsを実行
+  - `make cover`: テストカバレッジを計測して表示
+  - `make lint`: golangci-lintを実行
+  - `make fmt`: コードをフォーマット
+  - `make all`: lint、test、buildを順番に実行
+- コミット前に `make all` を実行して問題がないか確認する
 
 ### プロジェクト状況の追跡
 - プロジェクトルートにTODO.mdファイルを設置し、開発状況をリアルタイムに反映する
