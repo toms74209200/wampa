@@ -39,3 +39,52 @@ wampa -i https://example.com/input1.md -o output.txt
 - バージョン更新がほとんど不要なこと
 - メンテナンスが容易であること
 - テストが容易であること
+
+## Developer Information
+
+### Setup Development Environment
+
+```bash
+# Go環境のセットアップ（要Go 1.21以上）
+go mod download
+
+# golangci-lintのインストール
+go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
+
+# goimportsのインストール
+go install golang.org/x/tools/cmd/goimports@latest
+```
+
+### Development Commands
+
+プロジェクトルートのMakefileで以下のコマンドが利用可能です：
+
+```bash
+# すべての検証とビルドを実行
+make all
+
+# コードのビルドのみ
+make build
+
+# テストの実行（small tests）
+make test
+
+# カバレッジレポートの生成
+make cover
+
+# linterの実行
+make lint
+
+# コードフォーマット
+make fmt
+```
+
+### Development Workflow
+
+1. 機能追加・バグ修正を始める前に最新のmainブランチを取得
+2. 新しいfeatureブランチを作成
+3. TDDアプローチで開発：テスト → 実装 → リファクタリング
+4. コードの変更に合わせてTODO.mdを更新
+5. コミット前に `make all` を実行して問題がないか確認
+6. コミットメッセージは[gitmoji](https://gitmoji.dev/)を使用（例: `✨ Add config file parsing`）
+7. Pull Requestを作成
