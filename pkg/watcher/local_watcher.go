@@ -3,29 +3,51 @@ package watcher
 import (
 	"context"
 	"fmt"
+	"os"
 	"path/filepath"
 	"sync"
-
-	"github.com/fsnotify/fsnotify"
+	"time"
 )
+
+// RealFileSystem implements FileSystem interface using actual OS operations
+type RealFileSystem struct{}
+
+func (fs *RealFileSystem) GetFileState(path string) (FileState, error) {
+	info, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return FileState{Path: path, Exists: false}, nil
+		}
+		return FileState{}, err
+	}
+	return FileState{
+		Path:    path,
+		ModTime: info.ModTime(),
+		Exists:  true,
+	}, nil
+}
+
+func (fs *RealFileSystem) ResolvePath(path string) (string, error) {
+	return filepath.Abs(path)
+}
 
 // LocalWatcher implements Watcher for local files
 type LocalWatcher struct {
-	fsWatcher *fsnotify.Watcher
-	mu        sync.Mutex
-	watching  bool
+	mu         sync.Mutex
+	fs         FileSystem
+	states     map[string]FileState
+	watching   bool
+	done       chan struct{}
+	pollPeriod time.Duration
 }
 
 // NewLocalWatcher creates a new LocalWatcher instance
 func NewLocalWatcher() (*LocalWatcher, error) {
-	fsWatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, fmt.Errorf("failed to create fsnotify watcher: %w", err)
-	}
-	
 	return &LocalWatcher{
-		fsWatcher: fsWatcher,
-		watching:  false,
+		fs:         &RealFileSystem{},
+		states:     make(map[string]FileState),
+		done:       make(chan struct{}),
+		pollPeriod: 100 * time.Millisecond,
 	}, nil
 }
 
@@ -38,61 +60,89 @@ func (w *LocalWatcher) Watch(ctx context.Context, files []string, events chan<- 
 	}
 	w.watching = true
 	w.mu.Unlock()
-	
-	// Add all files to watch
-	for _, file := range files {
-		// Get the absolute path
-		absPath, err := filepath.Abs(file)
-		if err != nil {
-			return fmt.Errorf("failed to get absolute path for %s: %w", file, err)
-		}
-		
-		// Add the file to the watcher
-		if err := w.fsWatcher.Add(absPath); err != nil {
-			return fmt.Errorf("failed to watch file %s: %w", absPath, err)
-		}
+
+	// Get initial states
+	initialStates, err := GetFileStates(w.fs, files)
+	if err != nil {
+		w.mu.Lock()
+		w.watching = false
+		w.mu.Unlock()
+		return fmt.Errorf("failed to get initial file states: %w", err)
 	}
-	
-	// Start the watching goroutine
-	go func() {
-		defer func() {
-			w.mu.Lock()
-			w.watching = false
-			w.mu.Unlock()
-		}()
-		
-		for {
-			select {
-			case <-ctx.Done():
-				// Context was cancelled
-				return
-				
-			case event, ok := <-w.fsWatcher.Events:
-				if !ok {
-					// Channel was closed
-					return
-				}
-				
-				// Check if this is a modification event
-				if event.Op&fsnotify.Write == fsnotify.Write {
-					// Send an event to the channel
-					events <- Event{
-						FilePath: event.Name,
-						IsRemote: false,
-					}
-				}
-				
-			case err, ok := <-w.fsWatcher.Errors:
-				if !ok {
-					// Channel was closed
-					return
-				}
-				// Log the error but continue watching
-				fmt.Printf("Error watching file: %v\n", err)
+
+	w.mu.Lock()
+	w.states = initialStates
+	w.mu.Unlock()
+
+	// Start polling goroutine
+	go w.poll(ctx, events)
+
+	return nil
+}
+
+// poll periodically checks for file changes
+func (w *LocalWatcher) poll(ctx context.Context, events chan<- Event) {
+	ticker := time.NewTicker(w.pollPeriod)
+	defer ticker.Stop()
+	defer func() {
+		w.mu.Lock()
+		w.watching = false
+		w.mu.Unlock()
+	}()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-w.done:
+			return
+		case <-ticker.C:
+			if err := w.checkChanges(events); err != nil {
+				fmt.Printf("Error checking changes: %v\n", err)
 			}
 		}
-	}()
-	
+	}
+}
+
+// checkChanges checks for file changes and sends events
+func (w *LocalWatcher) checkChanges(events chan<- Event) error {
+	w.mu.Lock()
+	paths := make([]string, 0, len(w.states))
+	previousStates := make(map[string]FileState, len(w.states))
+	for path, state := range w.states {
+		paths = append(paths, path)
+		previousStates[path] = state
+	}
+	w.mu.Unlock()
+
+	// Get current states
+	currentStates, err := GetFileStates(w.fs, paths)
+	if err != nil {
+		return fmt.Errorf("failed to get file states: %w", err)
+	}
+
+	// Check for changes
+	changes := CheckFiles(currentStates, previousStates)
+	if len(changes) > 0 {
+		// Create and send events
+		fileEvents := CreateEvents(changes, false)
+
+		// Update states before sending events to prevent race conditions
+		w.mu.Lock()
+		w.states = currentStates
+		w.mu.Unlock()
+
+		// Send events without holding the lock
+		for _, event := range fileEvents {
+			select {
+			case events <- event:
+				// Event sent successfully
+			default:
+				return fmt.Errorf("event channel is blocked")
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -100,11 +150,12 @@ func (w *LocalWatcher) Watch(ctx context.Context, files []string, events chan<- 
 func (w *LocalWatcher) Close() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	
+
 	if !w.watching {
 		return nil
 	}
-	
+
+	close(w.done)
 	w.watching = false
-	return w.fsWatcher.Close()
+	return nil
 }

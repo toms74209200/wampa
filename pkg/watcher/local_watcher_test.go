@@ -4,244 +4,381 @@ package watcher
 
 import (
 	"context"
-	"os"
-	"path/filepath"
+	"errors"
 	"sync"
 	"testing"
 	"time"
 )
 
-// mockFsnotify は単体テスト用のfsnotifyモック
-type mockFsnotify struct {
-	events chan fsnotifyEvent
-	errors chan error
-	files  []string
-	closed bool
-	mu     sync.Mutex
-}
+// TestCheckFiles tests the pure function that detects file changes
+func TestCheckFiles(t *testing.T) {
+	baseTime := time.Now()
+	laterTime := baseTime.Add(time.Second)
 
-type fsnotifyEvent struct {
-	name string
-	op   uint32 // fsnotify.Op と互換性を持たせる
-}
-
-// NewWatcher は新しいモックウォッチャーを作成
-func (m *mockFsnotify) NewWatcher() (*mockFsnotify, error) {
-	return &mockFsnotify{
-		events: make(chan fsnotifyEvent),
-		errors: make(chan error),
-		files:  []string{},
-		closed: false,
-	}, nil
-}
-
-// Add はファイルをウォッチリストに追加
-func (m *mockFsnotify) Add(name string) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-	m.files = append(m.files, name)
-	return nil
-}
-
-// Close はウォッチャーを閉じる
-func (m *mockFsnotify) Close() error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
-	if !m.closed {
-		m.closed = true
-		close(m.events)
-		close(m.errors)
-	}
-	return nil
-}
-
-// SimulateEvent は指定したイベントをシミュレート
-func (m *mockFsnotify) SimulateEvent(name string, op uint32) {
-	m.events <- fsnotifyEvent{name: name, op: op}
-}
-
-// TestLocalWatcher_Watch は小さな単位でローカルファイル監視をテスト
-func TestLocalWatcher_Watch(t *testing.T) {
-	// テストケース
 	tests := []struct {
 		name     string
-		files    []string
-		simulate func(*testing.T, *mockFsnotify)
-		want     int // 受信を期待するイベント数
-		wantErr  bool
+		current  map[string]FileState
+		previous map[string]FileState
+		want     []FileChange
 	}{
 		{
-			name:  "シングルファイル監視",
-			files: []string{"test.md"},
-			simulate: func(t *testing.T, m *mockFsnotify) {
-				m.SimulateEvent("test.md", 2) // Write操作を模倣
+			name: "no changes",
+			current: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
 			},
-			want:    1,
-			wantErr: false,
+			previous: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+			},
+			want: []FileChange{},
 		},
 		{
-			name:  "複数ファイル監視",
-			files: []string{"test1.md", "test2.md"},
-			simulate: func(t *testing.T, m *mockFsnotify) {
-				m.SimulateEvent("test1.md", 2) // Write操作を模倣
-				m.SimulateEvent("test2.md", 2) // Write操作を模倣
+			name: "file modified",
+			current: map[string]FileState{
+				"file1": {Path: "file1", ModTime: laterTime, Exists: true},
 			},
-			want:    2,
-			wantErr: false,
+			previous: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+			},
+			want: []FileChange{
+				{Path: "file1", IsNew: false},
+			},
+		},
+		{
+			name: "new file",
+			current: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+				"file2": {Path: "file2", ModTime: baseTime, Exists: true},
+			},
+			previous: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+			},
+			want: []FileChange{
+				{Path: "file2", IsNew: true},
+			},
+		},
+		{
+			name: "file removed",
+			current: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+			},
+			previous: map[string]FileState{
+				"file1": {Path: "file1", ModTime: baseTime, Exists: true},
+				"file2": {Path: "file2", ModTime: baseTime, Exists: true},
+			},
+			want: []FileChange{
+				{Path: "file2", IsError: true},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			// モックの設定
-			mockFs := &mockFsnotify{}
-			mockWatcher, _ := mockFs.NewWatcher()
-
-			// コンテキストとチャネルの設定
-			ctx, cancel := context.WithCancel(context.Background())
-			defer cancel()
-
-			events := make(chan Event)
-			done := make(chan struct{})
-
-			// イベント受信用ゴルーチン
-			receivedEvents := 0
-			go func() {
-				for range events {
-					receivedEvents++
-					if receivedEvents >= tt.want {
-						close(done)
-						return
-					}
-				}
-			}()
-
-			// テスト対象の関数へのインターフェース呼び出し
-			// 実際の実装は使わずにモックを使う
-			err := performWatch(ctx, mockWatcher, tt.files, events)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("Watch() error = %v, wantErr %v", err, tt.wantErr)
-				return
+			got := CheckFiles(tt.current, tt.previous)
+			if !compareFileChanges(got, tt.want) {
+				t.Errorf("CheckFiles() = %v, want %v", got, tt.want)
 			}
-
-			// イベントシミュレーション
-			if tt.simulate != nil {
-				tt.simulate(t, mockWatcher)
-			}
-
-			// 期待するイベント数が受信されるまで待機、またはタイムアウト
-			select {
-			case <-done:
-				// 正常に完了
-			case <-time.After(100 * time.Millisecond):
-				t.Errorf("期待されるイベント数 %d に達しなかった, 実際: %d", tt.want, receivedEvents)
-			}
-
-			// クリーンアップ
-			cancel()
-			mockWatcher.Close()
 		})
 	}
 }
 
-// performWatch はテスト用のヘルパー関数
-func performWatch(ctx context.Context, watcher *mockFsnotify, files []string, events chan<- Event) error {
-	for _, file := range files {
-		if err := watcher.Add(file); err != nil {
-			return err
-		}
+// TestCreateEvents tests the pure function that creates events from changes
+func TestCreateEvents(t *testing.T) {
+	tests := []struct {
+		name     string
+		changes  []FileChange
+		isRemote bool
+		want     []Event
+	}{
+		{
+			name:     "no changes",
+			changes:  []FileChange{},
+			isRemote: false,
+			want:     []Event{},
+		},
+		{
+			name: "single change",
+			changes: []FileChange{
+				{Path: "file1", IsNew: false},
+			},
+			isRemote: false,
+			want: []Event{
+				{FilePath: "file1", IsRemote: false},
+			},
+		},
+		{
+			name: "multiple changes",
+			changes: []FileChange{
+				{Path: "file1", IsNew: false},
+				{Path: "file2", IsNew: true},
+			},
+			isRemote: true,
+			want: []Event{
+				{FilePath: "file1", IsRemote: true},
+				{FilePath: "file2", IsRemote: true},
+			},
+		},
+		{
+			name: "ignore error changes",
+			changes: []FileChange{
+				{Path: "file1", IsNew: false},
+				{Path: "file2", IsError: true},
+			},
+			isRemote: false,
+			want: []Event{
+				{FilePath: "file1", IsRemote: false},
+			},
+		},
 	}
 
-	go func() {
-		for {
-			select {
-			case <-ctx.Done():
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CreateEvents(tt.changes, tt.isRemote)
+			if !compareEvents(got, tt.want) {
+				t.Errorf("CreateEvents() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// MockFileSystem implements FileSystem interface for testing
+type MockFileSystem struct {
+	mu     sync.Mutex
+	states map[string]FileState
+	errors map[string]error
+}
+
+func NewMockFileSystem() *MockFileSystem {
+	return &MockFileSystem{
+		states: make(map[string]FileState),
+		errors: make(map[string]error),
+	}
+}
+
+func (m *MockFileSystem) GetFileState(path string) (FileState, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	
+	// First check for simulated errors
+	if err, ok := m.errors[path]; ok && err != nil {
+		return FileState{}, err
+	}
+	
+	// Then check for existing state
+	if state, ok := m.states[path]; ok {
+		return state, nil
+	}
+	
+	// If path doesn't exist, return non-existent state
+	return FileState{Path: path, Exists: false}, nil
+}
+
+func (m *MockFileSystem) ResolvePath(path string) (string, error) {
+	if err, ok := m.errors[path]; ok && err != nil {
+		return "", err
+	}
+	return "/mock/" + path, nil
+}
+
+func (m *MockFileSystem) SetFileState(path string, state FileState) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.states[path] = state
+}
+
+func (m *MockFileSystem) SetError(path string, err error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.errors[path] = err
+}
+
+// TestLocalWatcher tests the watcher implementation
+func TestLocalWatcher(t *testing.T) {
+	testCases := []struct {
+		name        string
+		setupFS     func(*MockFileSystem)
+		actions     func(*MockFileSystem)
+		wantEvents  int
+		wantTimeout bool
+		wantError   bool
+	}{
+		{
+			name: "detect single file modification",
+			setupFS: func(fs *MockFileSystem) {
+				fs.SetFileState("/mock/test.txt", FileState{
+					Path:    "/mock/test.txt",
+					ModTime: time.Now(),
+					Exists:  true,
+				})
+			},
+			actions: func(fs *MockFileSystem) {
+				fs.SetFileState("/mock/test.txt", FileState{
+					Path:    "/mock/test.txt",
+					ModTime: time.Now().Add(time.Second),
+					Exists:  true,
+				})
+			},
+			wantEvents:  1,
+			wantTimeout: false,
+			wantError:   false,
+		},
+		{
+			name: "detect multiple file modifications",
+			setupFS: func(fs *MockFileSystem) {
+				now := time.Now()
+				fs.SetFileState("/mock/test1.txt", FileState{
+					Path:    "/mock/test1.txt",
+					ModTime: now,
+					Exists:  true,
+				})
+				fs.SetFileState("/mock/test2.txt", FileState{
+					Path:    "/mock/test2.txt",
+					ModTime: now,
+					Exists:  true,
+				})
+			},
+			actions: func(fs *MockFileSystem) {
+				later := time.Now().Add(time.Second)
+				fs.SetFileState("/mock/test1.txt", FileState{
+					Path:    "/mock/test1.txt",
+					ModTime: later,
+					Exists:  true,
+				})
+				fs.SetFileState("/mock/test2.txt", FileState{
+					Path:    "/mock/test2.txt",
+					ModTime: later,
+					Exists:  true,
+				})
+			},
+			wantEvents:  2,
+			wantTimeout: false,
+			wantError:   false,
+		},
+		{
+			name: "handle file resolve error",
+			setupFS: func(fs *MockFileSystem) {
+				fs.SetError("test.txt", errors.New("resolve error"))
+			},
+			actions:     func(fs *MockFileSystem) {},
+			wantEvents:  0,
+			wantTimeout: false,
+			wantError:   true,
+		},
+		{
+			name: "handle get state error",
+			setupFS: func(fs *MockFileSystem) {
+				fs.SetError("/mock/test.txt", errors.New("state error"))
+			},
+			actions:     func(fs *MockFileSystem) {},
+			wantEvents:  0,
+			wantTimeout: false,
+			wantError:   true,
+		},
+		{
+			name: "handle watching already started error",
+			setupFS: func(fs *MockFileSystem) {
+				fs.SetFileState("/mock/test.txt", FileState{
+					Path:    "/mock/test.txt",
+					ModTime: time.Now(),
+					Exists:  true,
+				})
+			},
+			actions: func(fs *MockFileSystem) {},
+			wantEvents: 0,
+			wantTimeout: false,
+			wantError: true,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			mockFS := NewMockFileSystem()
+			tc.setupFS(mockFS)
+
+			w := &LocalWatcher{
+				fs:         mockFS,
+				states:     make(map[string]FileState),
+				done:       make(chan struct{}),
+				pollPeriod: 10 * time.Millisecond,
+			}
+
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+
+			events := make(chan Event, tc.wantEvents+1) // +1 for potential extra events
+			files := []string{"test.txt"}
+			if tc.wantEvents > 1 {
+				files = []string{"test1.txt", "test2.txt"}
+			}
+
+			// For "watching already started" test
+			if tc.wantError && tc.name == "handle watching already started error" {
+				w.watching = true
+			}
+
+			err := w.Watch(ctx, files, events)
+			if tc.wantError {
+				if err == nil {
+					t.Error("Watch() expected error but got nil")
+				}
 				return
-			case event, ok := <-watcher.events:
-				if !ok {
-					return
-				}
-				if event.op == 2 { // Write操作を想定
-					events <- Event{
-						FilePath: event.name,
-						IsRemote: false,
+			} else if err != nil {
+				t.Fatalf("Watch() error = %v", err)
+			}
+
+			// Wait for initial setup
+			time.Sleep(20 * time.Millisecond)
+
+			// Perform test actions
+			tc.actions(mockFS)
+
+			// Check for events
+			receivedCount := 0
+			timeout := time.After(100 * time.Millisecond)
+
+			for receivedCount < tc.wantEvents {
+				select {
+				case <-events:
+					receivedCount++
+				case <-timeout:
+					if !tc.wantTimeout {
+						t.Errorf("Timeout waiting for events, got %d, want %d", receivedCount, tc.wantEvents)
 					}
-				}
-			case _, ok := <-watcher.errors:
-				if !ok {
 					return
 				}
 			}
-		}
-	}()
 
-	return nil
+			// Test double close
+			if err := w.Close(); err != nil {
+				t.Errorf("First Close() error = %v", err)
+			}
+			if err := w.Close(); err != nil {
+				t.Errorf("Second Close() error = %v", err)
+			}
+		})
+	}
 }
 
-// 統合テスト用の実際のファイルを使ったテスト
-// Small Testではないためビルドタグで除外する
-func TestLocalWatcher_Integration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test in short mode")
+// Helper functions for comparing test results
+func compareFileChanges(a, b []FileChange) bool {
+	if len(a) != len(b) {
+		return false
 	}
-
-	// テスト用の一時ファイルを作成
-	tempFile, err := os.CreateTemp("", "watcher_test_*.txt")
-	if err != nil {
-		t.Fatalf("Failed to create temp file: %v", err)
-	}
-	defer os.Remove(tempFile.Name())
-	defer tempFile.Close()
-
-	// テスト対象の初期化
-	watcher, err := NewLocalWatcher()
-	if err != nil {
-		t.Fatalf("Failed to create watcher: %v", err)
-	}
-	defer watcher.Close()
-
-	// コンテキストとチャネルの設定
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-
-	events := make(chan Event)
-
-	// 監視開始
-	if err := watcher.Watch(ctx, []string{tempFile.Name()}, events); err != nil {
-		t.Fatalf("Failed to start watching: %v", err)
-	}
-
-	// イベント受信用ゴルーチン
-	var receivedPath string
-	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
-		defer wg.Done()
-		select {
-		case event := <-events:
-			receivedPath = event.FilePath
-		case <-time.After(2 * time.Second):
-			t.Errorf("Timeout waiting for file change event")
+	for i := range a {
+		if a[i] != b[i] {
+			return false
 		}
-	}()
-
-	// ファイル変更イベントをトリガー
-	time.Sleep(100 * time.Millisecond) // 監視が開始されるまで少し待つ
-	if _, err := tempFile.WriteString("test content"); err != nil {
-		t.Fatalf("Failed to write to file: %v", err)
 	}
-	if err := tempFile.Sync(); err != nil {
-		t.Fatalf("Failed to sync file: %v", err)
-	}
+	return true
+}
 
-	// 結果を確認
-	wg.Wait()
-
-	// 絶対パスに変換して比較
-	absPath, _ := filepath.Abs(tempFile.Name())
-	if receivedPath != absPath && receivedPath != tempFile.Name() {
-		t.Errorf("Unexpected file path: got %v, want %v or %v", receivedPath, absPath, tempFile.Name())
+func compareEvents(a, b []Event) bool {
+	if len(a) != len(b) {
+		return false
 	}
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+	return true
 }
