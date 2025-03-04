@@ -18,7 +18,7 @@ type Watcher interface {
 	// The files parameter is a slice of file paths to watch
 	// The events channel receives events when files change
 	Watch(ctx context.Context, files []string, events chan<- Event) error
-	
+
 	// Close stops watching and cleans up resources
 	Close() error
 }
