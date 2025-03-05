@@ -1,3 +1,6 @@
+//go:build medium
+// +build medium
+
 package acceptance
 
 import (
@@ -13,6 +16,7 @@ func TestFeatures(t *testing.T) {
 			Format:   "pretty",
 			Paths:    []string{"../../features/local_file_monitoring.feature"},
 			TestingT: t,
+			Tags:     "@medium",
 		},
 	}
 
