@@ -16,6 +16,11 @@ jobs:
     with:
       with-coverage: true
 
+  medium-test:
+    name: Medium Test
+    needs: [small-test]
+    uses: ./.github/workflows/test-medium.yml
+
   lint:
     name: Lint and Format
     uses: ./.github/workflows/test-lint.yml
