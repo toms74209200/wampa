@@ -1,9 +1,9 @@
 # Wampa 開発状況
 
 ## 現在の作業コンテキスト
-- **作業中のファイル**: `tests/acceptance/steps.go`, `pkg/formatter/formatter.go`
-- **実装中の機能**: ローカルファイル監視とフォーマット機能の受け入れテスト
-- **関連するテスト**: `tests/acceptance/acceptance_test.go`
+- **作業中のファイル**: `pkg/config/cli.go`, `pkg/config/cli_test.go`
+- **実装中の機能**: 設定ファイル処理の改善
+- **関連するテスト**: `pkg/config/cli_test.go`
 - **現在の課題**: なし
 
 ## エラーとバグ追跡
@@ -24,6 +24,7 @@
 - [x] 設定ファイル処理
   - [x] 設定ファイル読み込み（JSONベース）
   - [x] テーブル駆動テストの実装
+  - [x] コマンドラインオプションと設定ファイルの責務分離
   - [ ] TOMLサポートへの移行（Go 2.0で導入予定のencoding/tomlパッケージ待ち）
 - [x] ファイル監視モジュール
   - [x] ローカルファイル監視インターフェース定義
@@ -51,6 +52,8 @@
   - 移行時の影響を最小限にするため、設定ファイル処理を独立したパッケージとして実装
 - テストカバレッジ
   - config パッケージ: テーブル駆動テストで主要パスをカバー
+    - 設定ファイル処理とコマンドラインオプションの責務を分離
+    - LoadFromFileはmedium testで検証予定
   - watcher パッケージ: モックを使用したテストで複数のイベントケースをカバー
   - formatter パッケージ: テーブル駆動テストで実装完了
   - acceptance テスト: local_file_monitoring.featureの実装完了

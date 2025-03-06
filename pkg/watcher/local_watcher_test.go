@@ -157,17 +157,17 @@ func NewMockFileSystem() *MockFileSystem {
 func (m *MockFileSystem) GetFileState(path string) (FileState, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	
+
 	// First check for simulated errors
 	if err, ok := m.errors[path]; ok && err != nil {
 		return FileState{}, err
 	}
-	
+
 	// Then check for existing state
 	if state, ok := m.states[path]; ok {
 		return state, nil
 	}
-	
+
 	// If path doesn't exist, return non-existent state
 	return FileState{Path: path, Exists: false}, nil
 }
@@ -282,10 +282,10 @@ func TestLocalWatcher(t *testing.T) {
 					Exists:  true,
 				})
 			},
-			actions: func(fs *MockFileSystem) {},
-			wantEvents: 0,
+			actions:     func(fs *MockFileSystem) {},
+			wantEvents:  0,
 			wantTimeout: false,
-			wantError: true,
+			wantError:   true,
 		},
 	}
 

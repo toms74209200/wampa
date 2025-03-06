@@ -13,7 +13,7 @@ test:
 
 # テストカバレッジ計測
 cover:
-	go test -tags=small -race -coverprofile=coverage.txt -covermode=atomic ./...
+	go test -tags=small -race -coverprofile=coverage.txt -covermode=atomic `cat scripts/coverage_pkgs.txt`
 	go tool cover -func=coverage.txt
 
 # lintの実行
