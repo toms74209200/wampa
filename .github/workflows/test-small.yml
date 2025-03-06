@@ -32,7 +32,9 @@ jobs:
 
       - name: Run small tests with coverage
         if: ${{ inputs.with-coverage }}
-        run: go test -tags=small -race -coverprofile=coverage.txt -covermode=atomic ./...
+        run: |
+          COVERAGE_PKGS=$(cat scripts/coverage_pkgs.txt)
+          go test -tags=small -race -coverprofile=coverage.txt -covermode=atomic $COVERAGE_PKGS
 
       - name: Upload coverage report
         if: ${{ inputs.with-coverage }}
