@@ -3,21 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"os"
 )
-
-// LoadFromFile loads configuration from a file
-func LoadFromFile(path string) (*Config, error) {
-	data, err := os.ReadFile(path)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil, fmt.Errorf("設定ファイル %s が見つかりません", path)
-		}
-		return nil, fmt.Errorf("設定ファイルの読み込みに失敗しました: %w", err)
-	}
-
-	return Parse(data)
-}
 
 // Parse parses configuration from JSON data
 func Parse(data []byte) (*Config, error) {
