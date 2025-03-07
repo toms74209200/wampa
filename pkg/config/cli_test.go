@@ -113,7 +113,7 @@ func TestParseFlags(t *testing.T) {
 		},
 		{
 			name: "multiple input files",
-			args: []string{"-i", "input1.md input2.md", "-o", "output.md"},
+			args: []string{"-i", "input1.md", "input2.md", "-o", "output.md"},
 			want: &CLIOptions{
 				InputFiles: []string{"input1.md", "input2.md"},
 				OutputFile: "output.md",

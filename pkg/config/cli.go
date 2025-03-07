@@ -1,9 +1,12 @@
 package config
 
-import (
-	"flag"
-	"fmt"
-	"strings"
+import "fmt"
+
+// フラグの定義
+const (
+	InputFilesFlag = "-i"
+	OutputFileFlag = "-o"
+	ConfigFileFlag = "-c"
 )
 
 // CLIOptions represents command-line arguments
@@ -22,33 +25,63 @@ func NewCLIOptions() *CLIOptions {
 	}
 }
 
-// ParseFlags parses command line arguments using the provided FlagSet and returns CLIOptions
-func ParseFlags(flagSet *flag.FlagSet, args []string) (*CLIOptions, error) {
+// ParseFlags parses command line arguments and returns CLIOptions
+func ParseFlags(_ interface{}, args []string) (*CLIOptions, error) {
+	// 第1段階: フラグとその値を連想配列に分類
+	flags := make(map[string][]string)
+	var currentFlag string
+
+	for _, arg := range args {
+		if len(arg) == 0 {
+			continue
+		}
+
+		if arg[0] == '-' {
+			currentFlag = arg
+			flags[currentFlag] = []string{}
+		} else if currentFlag != "" {
+			flags[currentFlag] = append(flags[currentFlag], arg)
+		}
+	}
+
+	// 第2段階: 連想配列から必要なフラグの値を取り出してCLIOptionsを構築
 	opts := NewCLIOptions()
 
-	// Define a string for input files
-	var inputFiles string
-	flagSet.StringVar(&inputFiles, "i", "", "Input files (space-separated)")
-	flagSet.StringVar(&opts.OutputFile, "o", "", "Output file")
-	flagSet.StringVar(&opts.ConfigFile, "c", "wampa.json", "Config file path")
-
-	// Parse arguments
-	if err := flagSet.Parse(args); err != nil {
-		return nil, fmt.Errorf("failed to parse flags: %w", err)
+	if values, ok := flags[InputFilesFlag]; ok {
+		opts.InputFiles = values
 	}
 
-	// Split input files string into slice if provided
-	if inputFiles != "" {
-		opts.InputFiles = strings.Fields(inputFiles)
+	if values, ok := flags[OutputFileFlag]; ok {
+		if len(values) == 0 {
+			return nil, fmt.Errorf("output file path is required for %s flag", OutputFileFlag)
+		}
+		opts.OutputFile = values[0]
 	}
 
-	// Validate required flags when no config file is used
-	if flagSet.Lookup("c").Value.String() == "" {
+	if values, ok := flags[ConfigFileFlag]; ok {
+		if len(values) == 0 {
+			return nil, fmt.Errorf("config file path is required for %s flag", ConfigFileFlag)
+		}
+		opts.ConfigFile = values[0]
+		if opts.ConfigFile == "" {
+			opts.ConfigFile = "wampa.json"
+		}
+	}
+
+	// フラグの検証
+	for flag := range flags {
+		if flag != InputFilesFlag && flag != OutputFileFlag && flag != ConfigFileFlag {
+			return nil, fmt.Errorf("unknown flag: %s", flag)
+		}
+	}
+
+	// 設定ファイルが指定されていない場合の必須フラグの検証
+	if opts.ConfigFile == "" {
 		if len(opts.InputFiles) == 0 {
-			return nil, fmt.Errorf("input files (-i) are required when not using a config file")
+			return nil, fmt.Errorf("input files (%s) are required when not using a config file", InputFilesFlag)
 		}
 		if opts.OutputFile == "" {
-			return nil, fmt.Errorf("output file (-o) is required when not using a config file")
+			return nil, fmt.Errorf("output file (%s) is required when not using a config file", OutputFileFlag)
 		}
 	}
 
