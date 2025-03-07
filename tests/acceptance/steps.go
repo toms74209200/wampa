@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"wampa/pkg/formatter"
+	"wampa/pkg/wampa"
 	"wampa/pkg/watcher"
 
 	"github.com/cucumber/godog"
@@ -24,6 +25,7 @@ type testContext struct {
 	ctx        context.Context
 	cancel     context.CancelFunc
 	wg         sync.WaitGroup
+	cmdDone    chan struct{} // コマンド実行完了通知用のチャネル
 }
 
 func newTestContext() *testContext {
@@ -43,12 +45,20 @@ func newTestContext() *testContext {
 		events:    make(chan watcher.Event, 10),
 		ctx:       ctx,
 		cancel:    cancel,
+		cmdDone:   make(chan struct{}), // チャネルを初期化
 	}
 }
 
 func (tc *testContext) cleanup() {
 	if tc.cancel != nil {
 		tc.cancel()
+	}
+	// コマンド完了を待機
+	select {
+	case <-tc.cmdDone:
+		// 正常に終了した場合
+	case <-time.After(2 * time.Second):
+		// タイムアウトした場合
 	}
 	tc.wg.Wait() // goroutineの終了を待つ
 	if tc.watcher != nil {
@@ -96,95 +106,60 @@ func (tc *testContext) executeWampaCommand(command string) error {
 		return fmt.Errorf("invalid command: %s", command)
 	}
 
-	// -i と -o オプションを解析
-	var inputFiles []string
-	for i := 1; i < len(args); i++ {
+	// wampaコマンドの部分を除外
+	cmdArgs := []string{}
+
+	// 引数の変換: 相対パスをテストディレクトリの絶対パスに変換
+	i := 1 // wampa の後から処理開始
+	for i < len(args) {
 		switch args[i] {
 		case "-i":
-			// -i の後の引数をすべて入力ファイルとして扱う
+			// 入力ファイル指定
+			cmdArgs = append(cmdArgs, "-i")
 			i++
-			for ; i < len(args) && !strings.HasPrefix(args[i], "-"); i++ {
-				inputFiles = append(inputFiles, filepath.Join(tc.dir, args[i]))
+			// 複数のファイルが指定されている可能性があるため、次の"-"で始まるオプションが来るまで処理
+			for i < len(args) && !strings.HasPrefix(args[i], "-") {
+				// 相対パスを絶対パスに変換
+				absPath := filepath.Join(tc.dir, args[i])
+				cmdArgs = append(cmdArgs, absPath)
+				i++
 			}
-			i-- // for文のi++で次のイテレーションに進むため、ここで戻す
 		case "-o":
-			if i+1 >= len(args) {
-				return fmt.Errorf("missing output file path")
+			// 出力ファイル指定
+			cmdArgs = append(cmdArgs, "-o")
+			i++
+			if i < len(args) {
+				// 出力ファイルのパスを絶対パスに変換
+				tc.outputPath = filepath.Join(tc.dir, args[i])
+				cmdArgs = append(cmdArgs, tc.outputPath)
+				i++
 			}
-			tc.outputPath = filepath.Join(tc.dir, args[i+1])
+		default:
+			// その他のオプションはそのままコピー
+			cmdArgs = append(cmdArgs, args[i])
 			i++
 		}
 	}
 
-	if len(inputFiles) == 0 {
-		return fmt.Errorf("no input files specified")
-	}
-	if tc.outputPath == "" {
-		return fmt.Errorf("no output file specified")
-	}
+	// デバッグ用
+	fmt.Printf("処理後の引数: %v\n", cmdArgs)
+	fmt.Printf("出力ファイル: %s\n", tc.outputPath)
 
-	// 初期ファイルの生成
-	contents := make(map[string]string)
-	for _, file := range inputFiles {
-		content, err := os.ReadFile(file)
+	// 別goroutineでRun関数を実行
+	tc.wg.Add(1)
+	go func() {
+		defer tc.wg.Done()
+		defer close(tc.cmdDone) // 実行完了を通知
+
+		// run関数を実行してwampaコマンドを実行
+		err := wampa.Run(tc.ctx, cmdArgs)
 		if err != nil {
-			return fmt.Errorf("failed to read input file %s: %v", file, err)
-		}
-		contents[file] = string(content)
-	}
-
-	// 初期出力ファイルの生成
-	formatted, err := tc.formatter.Format(inputFiles, contents)
-	if err != nil {
-		return fmt.Errorf("failed to format files: %v", err)
-	}
-	if err := os.WriteFile(tc.outputPath, []byte(formatted), 0644); err != nil {
-		return fmt.Errorf("failed to write output file: %v", err)
-	}
-
-	// ファイル監視を開始
-	tc.wg.Add(2) // 2つのgoroutineを追加
-	go func() {
-		defer tc.wg.Done()
-		if err := tc.watcher.Watch(tc.ctx, inputFiles, tc.events); err != nil {
-			fmt.Printf("Failed to watch files: %v\n", err)
-			return
+			fmt.Printf("Failed to execute wampa command: %v\n", err)
 		}
 	}()
 
-	// イベントを処理して出力ファイルを更新
-	go func() {
-		defer tc.wg.Done()
-		for {
-			select {
-			case <-tc.ctx.Done():
-				return
-			case <-tc.events:
-				// ファイルの内容を読み込み
-				contents := make(map[string]string)
-				for _, file := range inputFiles {
-					content, err := os.ReadFile(file)
-					if err != nil {
-						fmt.Printf("Failed to read file %s: %v\n", file, err)
-						continue
-					}
-					contents[file] = string(content)
-				}
-				// フォーマットして保存
-				formatted, err := tc.formatter.Format(inputFiles, contents)
-				if err != nil {
-					fmt.Printf("Failed to format files: %v\n", err)
-					continue
-				}
-				if err := os.WriteFile(tc.outputPath, []byte(formatted), 0644); err != nil {
-					fmt.Printf("Failed to write output file: %v\n", err)
-				}
-			}
-		}
-	}()
-
-	// 初期ファイルが生成されるまで少し待機
-	time.Sleep(100 * time.Millisecond)
+	// コマンド開始待機
+	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
