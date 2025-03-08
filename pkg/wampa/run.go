@@ -7,9 +7,9 @@ import (
 	"log"
 	"os"
 
-	"wampa/pkg/config"
-	"wampa/pkg/formatter"
-	"wampa/pkg/watcher"
+	"github.com/toms74209200/wampa/pkg/config"
+	"github.com/toms74209200/wampa/pkg/formatter"
+	"github.com/toms74209200/wampa/pkg/watcher"
 )
 
 // Run executes the main application logic

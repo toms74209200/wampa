@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 
-	"wampa/pkg/config"
+	"github.com/toms74209200/wampa/pkg/config"
 )
 
 // LoadFromFile loads configuration from a file
