@@ -16,6 +16,8 @@ Wampa is a CLI application that monitors input files and updates an output file 
 - Command line parameters override configuration file settings when both are present
 - Supports remote files via URL (HTTP/HTTPS)
 - Uses filenames as section separators in the output file
+- Displays help information with `-h` or `--help` flag
+- Shows help information when command line arguments contain errors
 
 ## File Combination Format
 When combining multiple input files into a single output file, each input file content is preceded by its filename as a section separator. The section separators use Markdown-friendly formats that are optimized for AI coding agent context recognition.
@@ -79,6 +81,15 @@ When wampa.toml exists in the current directory, the application can be run with
 ```bash
 wampa
 ```
+
+### Help Information Display
+To display help information, use the following:
+```bash
+wampa -h
+# or
+wampa --help
+```
+When command line arguments contain errors, help information will be automatically displayed.
 
 ### Configuration File Format (wampa.toml)
 ```toml
