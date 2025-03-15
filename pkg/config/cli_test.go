@@ -186,3 +186,52 @@ func TestParseFlags(t *testing.T) {
 		})
 	}
 }
+
+// TestCheckHelpFlag tests help flag detection
+func TestCheckHelpFlag(t *testing.T) {
+	tests := []struct {
+		name string
+		args []string
+		want bool
+	}{
+		{
+			name: "short help flag only",
+			args: []string{"-h"},
+			want: true,
+		},
+		{
+			name: "long help flag only",
+			args: []string{"--help"},
+			want: true,
+		},
+		{
+			name: "no help flag",
+			args: []string{"-i", "input.md", "-o", "output.md"},
+			want: false,
+		},
+		{
+			name: "help flag with other flags",
+			args: []string{"-i", "input.md", "-h", "-o", "output.md"},
+			want: true,
+		},
+		{
+			name: "multiple args with long help",
+			args: []string{"-i", "input.md", "--help", "-o", "output.md"},
+			want: true,
+		},
+		{
+			name: "empty args",
+			args: []string{},
+			want: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := CheckHelpFlag(tt.args)
+			if got != tt.want {
+				t.Errorf("CheckHelpFlag() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
