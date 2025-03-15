@@ -1,4 +1,4 @@
 {
-    "input_files": ["spec.md", "rules.md"],
-    "output_file": "combined.md"
+    "input_files": ["spec/instructions.md", "TODO.md"],
+    "output_file": "/workspaces/wampa/.github/copilot-instructions.md"
 }

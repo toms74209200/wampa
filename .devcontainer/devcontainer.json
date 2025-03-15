@@ -3,7 +3,7 @@
 {
 	"name": "Wampa Development",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/go:1.21",
+	"image": "mcr.microsoft.com/devcontainers/go:1.23",
 
 	// Features to add to the dev container. More info: https://containers.dev/features.
 	"features": {
@@ -14,7 +14,7 @@
 	// "forwardPorts": [],
 
 	// Use 'postCreateCommand' to run commands after the container is created.
-	"postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2 && go install golang.org/x/tools/cmd/goimports@latest",
+	"postCreateCommand": "go mod download && go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2 && go install golang.org/x/tools/cmd/goimports@latest && go install github.com/toms74209200/wampa@latest",
 
 	// Configure tool-specific properties.
 	"customizations": {
