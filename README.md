@@ -1,90 +1,86 @@
+# Wampa
+
+Wampa is a CLI tool that monitors input files and combines them into a single output file. It's particularly useful for AI coding assistants that need context information from multiple files.
+
 ## Motivation
 
-- AIコーディングエージェントが、プログラムのコードを生成する際に必要となるコンテキスト情報やルールなどの情報を統合して一つのファイルとして提供する
-- AIコーディングエージェントには.clinerulesや.cursorrulesなどのファイルによって、コード生成のルールを提供できるが、使っているエージェントによって異なることや個々人が設定したいルールを別に持ちたいなど、ルールファイルが散逸してしまう問題がある
-- 人間のエンジニアがコードベースを参照する場合、プロジェクトの仕様やコーディングルールはコンテキストごとに分かれているほうがわかりやすい
+- Provide integrated context information and rules needed by AI coding agents when generating code
+- Solve the problem of scattered rule files caused by different AI coding agents using different file formats (.clinerules, .cursorrules, etc.)
+- Maintain separate contexts for project specifications and coding rules for better human readability
+
+## Installation
+
+```bash
+go install github.com/toms74209200/wampa@latest
+```
 
 ## Usage
 
-wampa を実行すると<input_files> を監視して <input_files> の変更のたびに <output_file> を更新する。 <input_files> は複数のファイルをスペース区切りで指定できる。
+### Basic Command
+
+Wampa monitors `<input_files>` and updates `<output_file>` whenever input files change. You can specify multiple input files separated by spaces.
 
 ```bash
 wampa -i <input_files> -o <output_file>
 ```
-wampa を実行するカレントディレクトリに設定ファイルwampa.tomlが存在する場合、設定ファイルに記述されたパラメータを使用して処理を行う。この場合引数なしで実行できる。
+
+### Configuration File
+
+When a `wampa.json` configuration file exists in the current directory, Wampa can be run without arguments:
 
 ```bash
 wampa
 ```
 
-wampa.tomlの例
-```toml
-input_files = ["input1.md", "input2.txt"]
-output_file = "output.txt"
+Example `wampa.json`:
+```json
+{
+    "input_files": ["input1.md", "input2.txt"],
+    "output_file": "output.txt"
+}
 ```
 
-wampa.tomlが存在し、なおかつコマンドライン引数が指定されている場合、コマンドライン引数が優先される。
+If both a configuration file exists and command-line arguments are provided, the command-line arguments take precedence.
 
-ネットワークを通じてオンライン上にあるファイルを指定することもできる
+### Remote Files
+
+Wampa can also monitor files available over HTTP/HTTPS:
 
 ```bash
 wampa -i https://example.com/input1.md -o output.txt
 ```
 
-## Technical requirements
+## File Combination Format
 
-- インストールが容易であること
-- 実行が容易であること
-- 依存関係が限りなく0に近いこと
-- バージョン更新がほとんど不要なこと
-- メンテナンスが容易であること
-- テストが容易であること
+When combining multiple input files, Wampa creates a single output file where each section is preceded by its filename. The format is optimized for AI assistants to recognize different contexts while still being Markdown-friendly.
 
-## Developer Information
+Example output:
+```markdown
+[//]: # "filepath: spec.md"
+# Product Specifications
+- Feature A: Does X
+- Feature B: Does Y
 
-### Setup Development Environment
-
-```bash
-# Go環境のセットアップ（要Go 1.21以上）
-go mod download
-
-# golangci-lintのインストール
-go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.54.2
-
-# goimportsのインストール
-go install golang.org/x/tools/cmd/goimports@latest
+[//]: # "filepath: rules.md"
+# Coding Rules
+1. Use camelCase for variables
+2. Add comments for public functions
 ```
 
-### Development Commands
+## Command Line Options
 
-プロジェクトルートのMakefileで以下のコマンドが利用可能です：
+- `-i <input_files>`: Space-separated list of input files to monitor
+- `-o <output_file>`: Path to the output file
+- `-c <config_file>`: Path to the configuration file (defaults to `wampa.json`)
 
-```bash
-# すべての検証とビルドを実行
-make all
+## Requirements
 
-# コードのビルドのみ
-make build
+- Go 1.23.4 or higher
 
-# テストの実行（small tests）
-make test
+## License
 
-# カバレッジレポートの生成
-make cover
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-# linterの実行
-make lint
+## Author
 
-# コードフォーマット
-make fmt
-```
-
-### Development Workflow
-
-1. 機能追加・バグ修正を始める前に最新のmainブランチを取得
-2. 新しいfeatureブランチを作成
-3. TDDアプローチで開発：テスト → 実装 → リファクタリング
-4. コードの変更に合わせてTODO.mdを更新
-5. コミット前に `make all` を実行して問題がないか確認
-6. コミットメッセージは[gitmoji](https://gitmoji.dev/)を使用（例: `✨ Add config file parsing`）
-7. Pull Requestを作成
+[toms74209200](https://github.com/toms74209200)
