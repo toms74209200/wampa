@@ -1,13 +1,30 @@
 package config
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // フラグの定義
 const (
-	InputFilesFlag = "-i"
-	OutputFileFlag = "-o"
-	ConfigFileFlag = "-c"
+	InputFilesFlag     = "-i"
+	InputFilesFlagLong = "--input"
+	OutputFileFlag     = "-o"
+	OutputFileFlagLong = "--output"
+	ConfigFileFlag     = "-c"
+	ConfigFileFlagLong = "--config"
+	HelpFlag           = "-h"
+	HelpFlagLong       = "--help"
 )
+
+// CheckHelpFlag checks if help flag is present in arguments
+func CheckHelpFlag(args []string) bool {
+	for _, arg := range args {
+		if arg == HelpFlag || arg == HelpFlagLong {
+			return true
+		}
+	}
+	return false
+}
 
 // CLIOptions represents command-line arguments
 type CLIOptions struct {
