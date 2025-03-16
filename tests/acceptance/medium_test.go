@@ -13,8 +13,11 @@ func TestFeatures(t *testing.T) {
 	suite := godog.TestSuite{
 		ScenarioInitializer: InitializeScenario,
 		Options: &godog.Options{
-			Format:   "pretty",
-			Paths:    []string{"../../features/local_file_monitoring.feature"},
+			Format: "pretty",
+			Paths: []string{
+				"../../features/local_file_monitoring.feature",
+				"../../features/config_file_handling.feature",
+			},
 			TestingT: t,
 			Tags:     "@medium",
 		},
