@@ -16,6 +16,23 @@ const (
 	HelpFlagLong       = "--help"
 )
 
+// ヘルプメッセージの定義
+const HelpMessage = `Wampa - ファイル監視と結合ツール
+
+使用方法:
+  wampa [オプション]
+
+オプション:
+  -i, --input <files>   入力ファイルのパス (複数指定可)
+  -o, --output <file>   出力ファイルのパス
+  -c, --config <file>   設定ファイルのパス (デフォルト: wampa.json)
+  -h, --help            ヘルプメッセージを表示
+
+例:
+  wampa -i file1.md -i file2.md -o output.md
+  wampa -c custom-config.json
+  wampa --help`
+
 // CheckHelpFlag checks if help flag is present in arguments
 func CheckHelpFlag(args []string) bool {
 	for _, arg := range args {
