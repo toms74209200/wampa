@@ -4,7 +4,7 @@ go 1.23.4
 
 require (
 	github.com/cucumber/godog v0.12.6
-	wampa v0.0.0-00010101000000-000000000000
+	github.com/toms74209200/wampa v0.0.0-20250315135142-3f337becc2b3
 )
 
 require (
@@ -17,4 +17,4 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 )
 
-replace wampa => ../..
+replace github.com/toms74209200/wampa/pkg => ../../pkg
