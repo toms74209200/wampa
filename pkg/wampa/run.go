@@ -14,6 +14,12 @@ import (
 
 // Run executes the main application logic
 func Run(ctx context.Context, args []string) error {
+	// Check for help flag first
+	if config.CheckHelpFlag(args) {
+		fmt.Println(config.HelpMessage)
+		return nil
+	}
+
 	// Parse command line arguments
 	cliOpts, err := config.ParseFlags(nil, args)
 	if err != nil {
