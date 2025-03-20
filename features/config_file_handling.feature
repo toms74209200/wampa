@@ -1,5 +1,5 @@
 Feature: 設定ファイルの読み込みと適用
-  Wampaは設定ファイル(wampa.toml)から入出力ファイルの設定を読み込む
+  Wampaは設定ファイル(wampa.json)から入出力ファイルの設定を読み込む
 
   Background:
     Given 以下の内容のspec.mdが存在する:
@@ -13,11 +13,14 @@ Feature: 設定ファイルの読み込みと適用
       これはコーディングルールです
       """
 
+  @medium
   Scenario: 設定ファイルからの入出力ファイル読み込み
-    Given 以下の内容のwampa.tomlが存在する:
+    Given 以下の内容のwampa.jsonが存在する:
       """
-      input_files = ["spec.md", "rules.md"]
-      output_file = "combined.md"
+      {
+        "input_files": ["spec.md", "rules.md"],
+        "output_file": "combined.md"
+      }
       """
     When wampaをパラメータなしで実行:
       """
@@ -34,11 +37,14 @@ Feature: 設定ファイルの読み込みと適用
       これはコーディングルールです
       """
 
+  @medium
   Scenario: 設定ファイルとコマンドラインパラメータの優先順位
-    Given 以下の内容のwampa.tomlが存在する:
+    Given 以下の内容のwampa.jsonが存在する:
       """
-      input_files = ["spec.md", "rules.md"]
-      output_file = "combined.md"
+      {
+        "input_files": ["spec.md", "rules.md"],
+        "output_file": "combined.md"
+      }
       """
     When wampaを以下のコマンドで実行:
       """
@@ -52,14 +58,15 @@ Feature: 設定ファイルの読み込みと適用
       これは製品仕様書です
       """
 
+  @medium
   Scenario: 設定ファイル不在時のエラー処理
-    When カレントディレクトリにwampa.tomlが存在しない状態でwampaをパラメータなしで実行:
+    When カレントディレクトリにwampa.jsonが存在しない状態でwampaをパラメータなしで実行:
       """
       wampa
       """
     Then 以下のエラーメッセージが表示される:
       """
-      設定ファイル wampa.toml が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。
+      設定ファイル wampa.json が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。
       """
     Then 以下のヘルプメッセージが表示される:
       """
@@ -72,6 +79,7 @@ Feature: 設定ファイルの読み込みと適用
       """
     And プロセスは非ゼロの終了コードで終了する
 
+  @medium
   Scenario Outline: ヘルプフラグによるヘルプ表示
     When wampaを以下のコマンドで実行:
       """
@@ -93,6 +101,7 @@ Feature: 設定ファイルの読み込みと適用
       | -h     |
       | --help |
 
+  @medium
   Scenario: 不正な引数指定時のヘルプ表示
     When wampaを以下のコマンドで実行:
       """
@@ -113,8 +122,9 @@ Feature: 設定ファイルの読み込みと適用
       """
     And プロセスは非ゼロの終了コードで終了する
 
+  @medium
   Scenario: 出力ファイル未指定時のエラー処理
-    When カレントディレクトリにwampa.tomlが存在しない状態でwampaを以下のコマンドで実行:
+    When カレントディレクトリにwampa.jsonが存在しない状態でwampaを以下のコマンドで実行:
       """
       wampa -i spec.md
       """

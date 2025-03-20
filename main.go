@@ -26,6 +26,6 @@ func main() {
 	}()
 
 	if err := wampa.Run(ctx, os.Args[1:]); err != nil {
-		log.Fatalf("Error: %v", err)
+		os.Exit(1)
 	}
 }

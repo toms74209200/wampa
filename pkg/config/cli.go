@@ -17,21 +17,12 @@ const (
 )
 
 // ヘルプメッセージの定義
-const HelpMessage = `Wampa - ファイル監視と結合ツール
-
-使用方法:
-  wampa [オプション]
+const HelpMessage = `使用方法: wampa [オプション]
 
 オプション:
-  -i, --input <files>   入力ファイルのパス (複数指定可)
-  -o, --output <file>   出力ファイルのパス
-  -c, --config <file>   設定ファイルのパス (デフォルト: wampa.json)
-  -h, --help            ヘルプメッセージを表示
-
-例:
-  wampa -i file1.md -i file2.md -o output.md
-  wampa -c custom-config.json
-  wampa --help`
+  -i, --input   入力ファイルを指定（複数指定可能）
+  -o, --output  出力ファイルを指定
+  -h, --help    このヘルプメッセージを表示`
 
 // CheckHelpFlag checks if help flag is present in arguments
 func CheckHelpFlag(args []string) bool {
@@ -84,17 +75,26 @@ func ParseFlags(_ interface{}, args []string) (*CLIOptions, error) {
 	if values, ok := flags[InputFilesFlag]; ok {
 		opts.InputFiles = values
 	}
+	if values, ok := flags[InputFilesFlagLong]; ok {
+		opts.InputFiles = append(opts.InputFiles, values...)
+	}
 
 	if values, ok := flags[OutputFileFlag]; ok {
 		if len(values) == 0 {
-			return nil, fmt.Errorf("output file path is required for %s flag", OutputFileFlag)
+			return nil, fmt.Errorf("出力ファイルのパスが指定されていません: %s", OutputFileFlag)
+		}
+		opts.OutputFile = values[0]
+	}
+	if values, ok := flags[OutputFileFlagLong]; ok {
+		if len(values) == 0 {
+			return nil, fmt.Errorf("出力ファイルのパスが指定されていません: %s", OutputFileFlagLong)
 		}
 		opts.OutputFile = values[0]
 	}
 
 	if values, ok := flags[ConfigFileFlag]; ok {
 		if len(values) == 0 {
-			return nil, fmt.Errorf("config file path is required for %s flag", ConfigFileFlag)
+			return nil, fmt.Errorf("設定ファイルのパスが指定されていません: %s", ConfigFileFlag)
 		}
 		opts.ConfigFile = values[0]
 		if opts.ConfigFile == "" {
@@ -105,17 +105,17 @@ func ParseFlags(_ interface{}, args []string) (*CLIOptions, error) {
 	// フラグの検証
 	for flag := range flags {
 		if flag != InputFilesFlag && flag != OutputFileFlag && flag != ConfigFileFlag {
-			return nil, fmt.Errorf("unknown flag: %s", flag)
+			return nil, fmt.Errorf("不明なオプション: %s", flag)
 		}
 	}
 
 	// 設定ファイルが指定されていない場合の必須フラグの検証
 	if opts.ConfigFile == "" {
 		if len(opts.InputFiles) == 0 {
-			return nil, fmt.Errorf("input files (%s) are required when not using a config file", InputFilesFlag)
+			return nil, fmt.Errorf("設定ファイル wampa.json が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。")
 		}
 		if opts.OutputFile == "" {
-			return nil, fmt.Errorf("output file (%s) is required when not using a config file", OutputFileFlag)
+			return nil, fmt.Errorf("出力ファイルが指定されていません。-o オプションを指定するか、設定ファイルを作成してください。")
 		}
 	}
 

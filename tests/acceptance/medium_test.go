@@ -19,7 +19,8 @@ func TestFeatures(t *testing.T) {
 				"../../features/config_file_handling.feature",
 			},
 			TestingT: t,
-			Tags:     "@medium",
+			// タグ指定を削除して全てのシナリオが実行されるようにする
+			// または明示的にconfig_file_handling.featureのシナリオを含めるタグ式を使用する
 		},
 	}
 
