@@ -23,12 +23,25 @@ func Run(ctx context.Context, args []string) error {
 	// Parse command line arguments
 	cliOpts, err := config.ParseFlags(nil, args)
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "%v\n\n", err)
+		fmt.Println(config.HelpMessage)
 		return fmt.Errorf("failed to parse command line arguments: %w", err)
 	}
 
 	var cfg *config.Config
 
 	// Check if config file exists and load it
+	configFile := cliOpts.ConfigFile
+	if configFile == "wampa.json" && len(args) == 0 {
+		// When no arguments are provided and using default config
+		_, err := os.Stat(configFile)
+		if os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "設定ファイル wampa.json が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。\n\n")
+			fmt.Println(config.HelpMessage)
+			return fmt.Errorf("config file not found")
+		}
+	}
+
 	if cliOpts.ConfigFile != "" {
 		data, err := os.ReadFile(cliOpts.ConfigFile)
 		if err == nil {
@@ -47,9 +60,10 @@ func Run(ctx context.Context, args []string) error {
 
 	// If no config was loaded from file, create from CLI options
 	if cfg == nil {
-		// テスト環境でのエラーを防ぐため、ConfigFileが未指定でも警告のみとする
 		cfg, err = config.LoadWithCLIOptions(cliOpts)
 		if err != nil {
+			fmt.Fprintf(os.Stderr, "%v\n\n", err)
+			fmt.Println(config.HelpMessage)
 			return fmt.Errorf("invalid configuration: %w", err)
 		}
 	} else {
@@ -73,6 +87,7 @@ func Run(ctx context.Context, args []string) error {
 	// Create and initialize watcher
 	w, err := watcher.NewLocalWatcher()
 	if err != nil {
+		fmt.Fprintf(os.Stderr, "ウォッチャー作成エラー: %v\n\n", err)
 		return fmt.Errorf("failed to create watcher: %w", err)
 	}
 	defer w.Close()
