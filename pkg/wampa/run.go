@@ -36,7 +36,7 @@ func Run(ctx context.Context, args []string) error {
 		// When no arguments are provided and using default config
 		_, err := os.Stat(configFile)
 		if os.IsNotExist(err) {
-			fmt.Fprintf(os.Stderr, "設定ファイル wampa.json が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。\n\n")
+			fmt.Fprintf(os.Stderr, "Configuration file wampa.json not found. Please specify -i and -o options or create a configuration file.\n\n")
 			fmt.Println(config.HelpMessage)
 			return fmt.Errorf("config file not found")
 		}
@@ -87,7 +87,7 @@ func Run(ctx context.Context, args []string) error {
 	// Create and initialize watcher
 	w, err := watcher.NewLocalWatcher()
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "ウォッチャー作成エラー: %v\n\n", err)
+		fmt.Fprintf(os.Stderr, "Failed to create watcher: %v\n\n", err)
 		return fmt.Errorf("failed to create watcher: %w", err)
 	}
 	defer w.Close()
