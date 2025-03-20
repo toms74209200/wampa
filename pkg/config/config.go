@@ -25,7 +25,7 @@ func (c *Config) Validate() error {
 	}
 
 	if c.OutputFile == "" {
-		return fmt.Errorf("output_file must not be empty")
+		return fmt.Errorf("出力ファイルが指定されていません。-o オプションを指定するか、設定ファイルを作成してください。")
 	}
 
 	return nil
