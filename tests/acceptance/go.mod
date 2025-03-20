@@ -17,4 +17,4 @@ require (
 	github.com/spf13/pflag v1.0.5 // indirect
 )
 
-replace github.com/toms74209200/wampa/pkg => ../../pkg
+replace github.com/toms74209200/wampa => ../..
