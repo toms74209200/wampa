@@ -1,4 +1,4 @@
 {
-    "input_files": ["spec/instructions.md", "TODO.md", ".instructions.md"],
+    "input_files": [".instructions.md", "TODO.md", "spec/instructions.md"],
     "output_file": "/workspaces/wampa/.github/copilot-instructions.md"
 }
