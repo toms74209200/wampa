@@ -15,17 +15,17 @@ func (c *Config) Validate() error {
 	}
 
 	if len(c.InputFiles) == 0 {
-		return fmt.Errorf("input_files must not be empty")
+		return fmt.Errorf("Configuration file wampa.json not found. Please specify -i and -o options or create a configuration file.")
 	}
 
 	for i, file := range c.InputFiles {
 		if file == "" {
-			return fmt.Errorf("input_files[%d] must not be empty", i)
+			return fmt.Errorf("input_files[%d] is empty", i)
 		}
 	}
 
 	if c.OutputFile == "" {
-		return fmt.Errorf("出力ファイルが指定されていません。-o オプションを指定するか、設定ファイルを作成してください。")
+		return fmt.Errorf("Output file not specified. Please specify -o option or create a configuration file.")
 	}
 
 	return nil

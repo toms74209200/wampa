@@ -4,9 +4,7 @@ This document provides custom instructions for GitHub Copilot when working with 
 
 ## Important Note on Documentation
 
-- This file (copilot-instructions.md) MUST always be written entirely in English for better token efficiency and consistent documentation.
-- When chatting about this project, please use Japanese language for conversation.
-- Code comments and documentation should follow the existing patterns in the codebase (primarily English with some Japanese explanations where appropriate).
+- All documentation and code comments MUST be written entirely in English for better token efficiency and consistent documentation.
 
 ## Important Files to Reference
 

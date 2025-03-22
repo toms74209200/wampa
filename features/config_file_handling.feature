@@ -66,16 +66,16 @@ Feature: 設定ファイルの読み込みと適用
       """
     Then 以下のエラーメッセージが表示される:
       """
-      設定ファイル wampa.json が見つかりません。-i および -o オプションを指定するか、設定ファイルを作成してください。
+      Configuration file wampa.json not found. Please specify -i and -o options or create a configuration file.
       """
     Then 以下のヘルプメッセージが表示される:
       """
-      使用方法: wampa [オプション]
+      Usage: wampa [options]
 
-      オプション:
-        -i, --input   入力ファイルを指定（複数指定可能）
-        -o, --output  出力ファイルを指定
-        -h, --help    このヘルプメッセージを表示
+      Options:
+        -i, --input   Specify input file(s) (can be specified multiple times)
+        -o, --output  Specify output file
+        -h, --help    Display this help message
       """
     And プロセスは非ゼロの終了コードで終了する
 
@@ -87,12 +87,12 @@ Feature: 設定ファイルの読み込みと適用
       """
     Then 以下のヘルプメッセージが表示される:
       """
-      使用方法: wampa [オプション]
+      Usage: wampa [options]
 
-      オプション:
-        -i, --input   入力ファイルを指定（複数指定可能）
-        -o, --output  出力ファイルを指定
-        -h, --help    このヘルプメッセージを表示
+      Options:
+        -i, --input   Specify input file(s) (can be specified multiple times)
+        -o, --output  Specify output file
+        -h, --help    Display this help message
       """
     And プロセスはゼロの終了コードで終了する
 
@@ -109,16 +109,16 @@ Feature: 設定ファイルの読み込みと適用
       """
     Then 以下のエラーメッセージが表示される:
       """
-      不明なオプション: -x
+      Unknown option: -x
       """
     Then 以下のヘルプメッセージが表示される:
       """
-      使用方法: wampa [オプション]
+      Usage: wampa [options]
 
-      オプション:
-        -i, --input   入力ファイルを指定（複数指定可能）
-        -o, --output  出力ファイルを指定
-        -h, --help    このヘルプメッセージを表示
+      Options:
+        -i, --input   Specify input file(s) (can be specified multiple times)
+        -o, --output  Specify output file
+        -h, --help    Display this help message
       """
     And プロセスは非ゼロの終了コードで終了する
 
@@ -130,15 +130,15 @@ Feature: 設定ファイルの読み込みと適用
       """
     Then 以下のエラーメッセージが表示される:
       """
-      出力ファイルが指定されていません。-o オプションを指定するか、設定ファイルを作成してください。
+      Output file not specified. Please specify -o option or create a configuration file.
       """
     Then 以下のヘルプメッセージが表示される:
       """
-      使用方法: wampa [オプション]
+      Usage: wampa [options]
 
-      オプション:
-        -i, --input   入力ファイルを指定（複数指定可能）
-        -o, --output  出力ファイルを指定
-        -h, --help    このヘルプメッセージを表示
+      Options:
+        -i, --input   Specify input file(s) (can be specified multiple times)
+        -o, --output  Specify output file
+        -h, --help    Display this help message
       """
     And プロセスは非ゼロの終了コードで終了する
