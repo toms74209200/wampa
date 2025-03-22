@@ -28,12 +28,12 @@ func CreateRemoteFileRequest(ctx context.Context, url string, headers map[string
 	if err != nil {
 		return nil, fmt.Errorf("creating HTTP request for %s: %w", url, err)
 	}
-	
+
 	// Add custom headers if provided
 	for key, value := range headers {
 		req.Header.Set(key, value)
 	}
-	
+
 	return req, nil
 }
 
@@ -47,7 +47,7 @@ func ProcessRemoteFileResponse(resp *http.Response, url string, maxSize int64) (
 	if resp == nil {
 		return nil, RemoteFileState{URL: url}, errors.New("nil HTTP response")
 	}
-	
+
 	// Initialize state with available metadata
 	state := RemoteFileState{
 		URL:          url,
@@ -56,24 +56,24 @@ func ProcessRemoteFileResponse(resp *http.Response, url string, maxSize int64) (
 		ContentType:  resp.Header.Get("Content-Type"),
 		Size:         resp.ContentLength,
 	}
-	
+
 	// Check for non-success status code
 	if resp.StatusCode != http.StatusOK {
 		return nil, state, fmt.Errorf("unexpected status code %d from %s", resp.StatusCode, url)
 	}
-	
+
 	// Check content size against maximum allowed
 	if resp.ContentLength > maxSize {
 		return nil, state, fmt.Errorf("file size %d exceeds maximum allowed size %d", resp.ContentLength, maxSize)
 	}
-	
+
 	// Read response body with size limit
 	limitReader := io.LimitReader(resp.Body, maxSize)
 	content, err := io.ReadAll(limitReader)
 	if err != nil {
 		return nil, state, fmt.Errorf("reading response body from %s: %w", url, err)
 	}
-	
+
 	return content, state, nil
 }
 
@@ -96,7 +96,7 @@ func ProcessRemoteFileResponseStreaming(
 	if resp == nil {
 		return RemoteFileState{URL: url}, errors.New("nil HTTP response")
 	}
-	
+
 	// Initialize state with available metadata
 	state := RemoteFileState{
 		URL:          url,
@@ -105,24 +105,24 @@ func ProcessRemoteFileResponseStreaming(
 		ContentType:  resp.Header.Get("Content-Type"),
 		Size:         resp.ContentLength,
 	}
-	
+
 	// Check for non-success status code
 	if resp.StatusCode != http.StatusOK {
 		return state, fmt.Errorf("unexpected status code %d from %s", resp.StatusCode, url)
 	}
-	
+
 	// Check content size against maximum allowed
 	if resp.ContentLength > maxSize {
 		return state, fmt.Errorf("file size %d exceeds maximum allowed size %d", resp.ContentLength, maxSize)
 	}
-	
+
 	// Read and process response in chunks
 	buffer := make([]byte, chunkSize)
 	var totalBytes int64
-	
+
 	for {
 		n, err := resp.Body.Read(buffer)
-		
+
 		// Process any data that was read
 		if n > 0 {
 			// Check total size against maximum
@@ -130,22 +130,22 @@ func ProcessRemoteFileResponseStreaming(
 			if totalBytes > maxSize {
 				return state, fmt.Errorf("file size exceeds maximum allowed size %d", maxSize)
 			}
-			
+
 			// Process this chunk
 			if err := processChunk(buffer[:n]); err != nil {
 				return state, fmt.Errorf("processing chunk: %w", err)
 			}
 		}
-		
+
 		// Handle end of file or other errors
 		if err == io.EOF {
 			break
 		}
-		
+
 		if err != nil {
 			return state, fmt.Errorf("reading response body from %s: %w", url, err)
 		}
 	}
-	
+
 	return state, nil
 }
