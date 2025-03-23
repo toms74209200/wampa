@@ -35,6 +35,9 @@
     - [x] レスポンス処理（純粋関数）
     - [x] ストリーミング処理（純粋関数）
     - [x] テストの実装（small tests）
+  - [x] リモートファイル処理のLarge Testの実装
+    - [x] remote_file_handling.featureの実装
+    - [x] GitHub Actionsワークフローの追加 (test-large.yml)
   - [ ] リモートファイル監視（スコープ外として保留）
 - [x] ファイル結合機能
   - [x] フォーマッターインターフェース設計
@@ -77,11 +80,13 @@
     - コマンドライン引数のパース処理は純粋関数としてテスト可能
   - watcher パッケージ: モックを使用したテストで複数のイベントケースをカバー
   - formatter パッケージ: テーブル駆動テストで実装完了
-  - acceptance テスト: local_file_monitoring.featureとconfig_file_handling.featureの実装
+  - acceptance テスト: 
+    - local_file_monitoring.featureとconfig_file_handling.featureはmedium testで実装
+    - remote_file_handling.featureはlarge testで実装（GitHub上のリモートファイル取得）
 
 ## 直近の作業履歴
-- ヘルプ機能の実装が完了
-  - すべてのユニットテストが通過
-  - アクセプタンステストも実装・通過
-  - リンターとフォーマッターのチェックをパス
+- リモートファイル処理のLarge Test実装が完了
+  - GitHub上のリモートファイル取得テストの実装
+  - Large Test用のGitHub Actionsワークフロー作成
+  - テストがすべて通過していることを確認
 - 次のステップ: PRの作成準備完了

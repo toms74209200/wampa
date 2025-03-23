@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"net/http"
+	"net/url"
 	"os"
 
 	"github.com/toms74209200/wampa/pkg/config"
@@ -12,8 +14,20 @@ import (
 	"github.com/toms74209200/wampa/pkg/watcher"
 )
 
+// Constants for size limits (in bytes)
+const (
+	KB = 1000
+	MB = 1000 * KB
+)
+
+// Maximum file size for remote files (100MB)
+const maxFileSize = 100 * MB
+
 // Run executes the main application logic
 func Run(ctx context.Context, args []string) error {
+	// Cache for remote file contents
+	remoteContents := make(map[string]string)
+
 	// Check for help flag first
 	if config.CheckHelpFlag(args) {
 		fmt.Println(config.HelpMessage)
@@ -110,12 +124,41 @@ func Run(ctx context.Context, args []string) error {
 		// Read all input files
 		contents := make(map[string]string)
 		for _, file := range cfg.InputFiles {
-			data, err := os.ReadFile(file)
-			if err != nil {
-				log.Printf("Error generating initial output - failed to read file %s: %v", file, err)
-				break
+			// Check if the file is a remote URL
+			if u, err := url.Parse(file); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+				// Create HTTP request
+				req, err := watcher.CreateRemoteFileRequest(ctx, file, nil)
+				if err != nil {
+					log.Printf("Error creating request for %s: %v", file, err)
+					break
+				}
+
+				// Execute request
+				resp, err := http.DefaultClient.Do(req)
+				if err != nil {
+					log.Printf("Error fetching %s: %v", file, err)
+					break
+				}
+				defer resp.Body.Close()
+
+				// Process response
+				data, _, err := watcher.ProcessRemoteFileResponse(resp, file, maxFileSize)
+				if err != nil {
+					log.Printf("Error processing response from %s: %v", file, err)
+					break
+				}
+				contents[file] = string(data)
+				// Cache remote content
+				remoteContents[file] = string(data)
+			} else {
+				// Handle local file
+				data, err := os.ReadFile(file)
+				if err != nil {
+					log.Printf("Error generating initial output - failed to read file %s: %v", file, err)
+					break
+				}
+				contents[file] = string(data)
 			}
-			contents[file] = string(data)
 		}
 
 		// Format contents
@@ -143,6 +186,16 @@ func Run(ctx context.Context, args []string) error {
 			// Read all input files
 			contents := make(map[string]string)
 			for _, file := range cfg.InputFiles {
+				// Skip remote files during change events
+				if u, err := url.Parse(file); err == nil && (u.Scheme == "http" || u.Scheme == "https") {
+					// Use cached remote content
+					if content, ok := remoteContents[file]; ok {
+						contents[file] = content
+					}
+					continue
+				}
+
+				// Handle local file
 				data, err := os.ReadFile(file)
 				if err != nil {
 					log.Printf("Error processing files - failed to read file %s: %v", file, err)
