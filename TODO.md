@@ -2,9 +2,9 @@
 
 ## 現在の作業コンテキスト
 - **作業中のファイル**: なし（実装完了）
-- **実装中の機能**: なし（実装完了）
-- **関連するテスト**: なし
-- **現在の課題**: なし
+- **実装中の機能**: 標準入力処理
+- **関連するテスト**: features/standard_input_handling.feature
+- **現在の課題**: 標準入力機能の実装
 
 ## エラーとバグ追跡
 - **コンパイルエラー**: なし
@@ -17,6 +17,10 @@
 - [x] 技術要件の定義 (requirements.md)
   - [x] TOML対応の課題を明確化し、暫定対応としてJSONを使用
 - [x] 受入テスト定義 (features/*.feature)
+  - [x] config_file_handling.feature
+  - [x] local_file_monitoring.feature
+  - [x] remote_file_handling.feature
+  - [x] standard_input_handling.feature
 - [x] プロジェクト構造の設定
   - [x] ディレクトリ構造の作成
   - [x] 主要インターフェースの定義
@@ -65,6 +69,11 @@
   - [x] エラーメッセージ表示のアクセプタンステスト
 
 ### 保留中の機能
+- [ ] 標準入力サポート
+  - [ ] コマンドライン引数に標準入力フラグ(-s, --stdin)を追加
+  - [ ] 標準入力の読み取り処理の実装
+  - [ ] 標準入力コンテンツと他の入力ファイルの結合処理
+  - [ ] standard_input_handling.featureの受け入れテスト実装
 - [ ] TOMLサポートへの移行（標準ライブラリのencoding/tomlパッケージ対応待ち）
 - [ ] リモートファイル監視（スコープ外）
 
@@ -85,8 +94,11 @@
     - remote_file_handling.featureはlarge testで実装（GitHub上のリモートファイル取得）
 
 ## 直近の作業履歴
+- 標準入力機能のサポートに関する計画を追加
+  - standard_input_handling.featureファイルの作成
+  - TODO.mdの更新
 - リモートファイル処理のLarge Test実装が完了
   - GitHub上のリモートファイル取得テストの実装
   - Large Test用のGitHub Actionsワークフロー作成
   - テストがすべて通過していることを確認
-- 次のステップ: PRの作成準備完了
+- 次のステップ: 標準入力機能の実装
