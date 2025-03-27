@@ -76,6 +76,27 @@ This format enables AI coding agents to understand the context of different sect
 wampa -i <input_files> -o <output_file>
 ```
 
+### Standard Input Support
+Wampa supports reading content from standard input using the `-s` flag (`--stdin` for long form). This feature enables integration with shell pipelines and dynamic content generation.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "https://example.com/input.md" | wampa -s -i other.md -o output.md
+```
+
+```bash
+wampa -s -i other.md -o output.md << EOF
+# Dynamic Content
+This content is generated at runtime.
+EOF
+```
+
+When using standard input:
+- The `-s` flag indicates that input should be read from standard input
+- Standard input is treated as an additional input source
+- Content from standard input is combined with other input files if specified
+- The content appears first in the output file
+- Standard input can only be specified once per command
+
 ### Configuration File Usage
 When wampa.toml exists in the current directory, the application can be run without arguments:
 ```bash
