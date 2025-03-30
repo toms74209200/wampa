@@ -64,66 +64,31 @@ When working on this project, always reference these key files for context and r
 6. Run `make all` before committing to check for any issues
 7. Create a Pull Request after ensuring all checks pass
 
-### Working with Code
-1. Use absolute paths for all file operations to avoid execution failures
-2. Run commands from the project root when possible
-3. Always verify dependency availability before using tools
-
-### Version Control and Commits
-1. Always use [gitmoji](https://gitmoji.dev/) for commit messages
-   - ✨ (`:sparkles:`) - New features
-   - 🐛 (`:bug:`) - Bug fixes
-   - ♻️ (`:recycle:`) - Code refactoring
-   - 📝 (`:memo:`) - Documentation updates
-   - ✅ (`:white_check_mark:`) - Adding or updating tests
-   - 🎨 (`:art:`) - Improving code structure/format
-2. Format commits as: `emoji Short description in English`
-3. **Always verify changes before committing using `git status`**
-4. Before committing, run tests and linting to ensure quality
-
 ### Testing Strategy
+
 1. Test Types and Size Classifications (refer to [Google Testing Blog](https://testing.googleblog.com/2010/12/test-sizes.html))
    
    **Important Principle**: All unit tests MUST be small tests, while acceptance tests can be medium or large tests depending on their implementation requirements.
    
    - **Small Tests**:
-     - For unit testing only
      - Tagged with `//go:build small`
      - Run with `go test -tags=small ./...`
-     - Must follow strict Small Test requirements (see below)
      
    - **Medium Tests**:
-     - For integration testing and simpler acceptance tests
-     - Include acceptance tests that use file system but no external services
      - Located in `tests/acceptance` with appropriate features
      - Tagged with `//go:build medium`
      - Run with `go test -tags=medium ./tests/acceptance/...`
-     - Allowed to use file system, concurrency, and reasonable timeouts
      
    - **Large Tests**:
-     - For end-to-end acceptance tests with external dependencies
-     - Can use network, external services, longer timeouts
      - Tagged with `//go:build large`
      - Run with `go test -tags=large ./tests/acceptance/...`
-     - Should be kept to a minimum due to resource requirements
 
-2. Test size Constraints:
-    | Feature                  | Small                 | Medium                     | Large                           |
-    |--------------------------|-----------------------|----------------------------|---------------------------------|
-    | Time limit(seconds)      | 60                    | 300                        | 900+                            |
-    | Networks                 | No                    | localhost only             | Yes                             |
-    | Database                 | No                    | Yes                        | Yes                             |
-    | File system access       | No                    | Discouraged                | Yes                             |
-    | Multiple threads         | No                    | Yes                        | Yes                             |
-    | Sleep statements         | No                    | Yes                        | Yes                             |
-    | System properties        | No                    | Yes                        | Yes                             |
-
-3. Test Coverage Requirements:
+2. Test Coverage Requirements:
    - Overall coverage must be at least 80%
    - Managed through `scripts/coverage_pkgs.txt`
    - Check coverage using `make cover`
 
-4. Acceptance Test Process:
+3. Acceptance Test Process:
    - Acceptance tests are implemented at appropriate test sizes (medium or large)
    - The test size should match the resource needs of the test scenario
    - Feature files are in `/features` directory with `.feature` extension
@@ -141,7 +106,7 @@ When working on this project, always reference these key files for context and r
 ### Pull Request Process
 1. Run `make all` to verify all tests pass and no lint errors exist
 2. Push changes to feature branch
-3. Create PR using GitHub CLI: `gh pr create --base main --head feature-branch`
+3. Create PR using GitHub CLI: `gh pr create --base master --head feature-branch`
 4. Ensure PR description includes:
    - Description of changes
    - Reference to requirements implemented
