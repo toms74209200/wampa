@@ -9,9 +9,9 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/toms74209200/wampa/pkg/config"
-	"github.com/toms74209200/wampa/pkg/formatter"
-	"github.com/toms74209200/wampa/pkg/watcher"
+	"github.com/toms74209200/wampa/internal/config"
+	"github.com/toms74209200/wampa/internal/formatter"
+	"github.com/toms74209200/wampa/internal/watcher"
 )
 
 // Constants for size limits (in bytes)

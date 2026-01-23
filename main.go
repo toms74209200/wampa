@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 
-	"github.com/toms74209200/wampa/pkg/wampa"
+	"github.com/toms74209200/wampa/internal/wampa"
 )
 
 func main() {
