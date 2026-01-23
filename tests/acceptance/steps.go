@@ -4,39 +4,64 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"strings"
-	"sync"
 	"time"
-
-	"github.com/toms74209200/wampa/pkg/formatter"
-	"github.com/toms74209200/wampa/pkg/wampa"
-	"github.com/toms74209200/wampa/pkg/watcher"
 
 	"github.com/cucumber/godog"
 )
 
+// binaryPath holds the path to the wampa binary
+var binaryPath string
+
+func init() {
+	// Build the binary before tests
+	buildBinary()
+}
+
+func buildBinary() {
+	// Get the project root directory (two levels up from tests/acceptance)
+	wd, err := os.Getwd()
+	if err != nil {
+		panic(fmt.Sprintf("Failed to get working directory: %v", err))
+	}
+
+	// Navigate to project root
+	projectRoot := filepath.Join(wd, "..", "..")
+	if _, err := os.Stat(filepath.Join(projectRoot, "go.mod")); os.IsNotExist(err) {
+		// If running from project root
+		projectRoot = wd
+	}
+
+	// Create temp directory for binary
+	tmpDir, err := os.MkdirTemp("", "wampa-bin-*")
+	if err != nil {
+		panic(fmt.Sprintf("Failed to create temp directory for binary: %v", err))
+	}
+
+	binaryPath = filepath.Join(tmpDir, "wampa")
+
+	// Build the binary
+	cmd := exec.Command("go", "build", "-o", binaryPath, ".")
+	cmd.Dir = projectRoot
+	if output, err := cmd.CombinedOutput(); err != nil {
+		panic(fmt.Sprintf("Failed to build wampa binary: %v\nOutput: %s", err, output))
+	}
+}
+
 type testContext struct {
 	dir           string
 	outputPath    string
-	watcher       *watcher.LocalWatcher
-	formatter     *formatter.DefaultFormatter
-	events        chan watcher.Event
 	ctx           context.Context
 	cancel        context.CancelFunc
-	wg            sync.WaitGroup
-	cmdDone       chan struct{} // コマンド実行完了通知用のチャネル
-	cmdError      error         // コマンド実行のエラー結果
-	stdoutCapture *bytes.Buffer // 標準出力をキャプチャするバッファ
-	stderrCapture *bytes.Buffer // 標準エラー出力をキャプチャするバッファ
-	origStdout    *os.File      // 元の標準出力
-	origStderr    *os.File      // 元の標準エラー出力
-	stdoutReader  *os.File      // 標準出力のリーダー
-	stdoutWriter  *os.File      // 標準出力のライター
-	stderrReader  *os.File      // 標準エラー出力のリーダー
-	stderrWriter  *os.File      // 標準エラー出力のライター
+	cmd           *exec.Cmd
+	cmdDone       chan struct{}
+	cmdError      error
+	exitCode      int
+	stdoutCapture *bytes.Buffer
+	stderrCapture *bytes.Buffer
 }
 
 func newTestContext() *testContext {
@@ -44,19 +69,12 @@ func newTestContext() *testContext {
 	if err != nil {
 		panic(fmt.Sprintf("Failed to create test directory: %v", err))
 	}
-	w, err := watcher.NewLocalWatcher()
-	if err != nil {
-		panic(fmt.Sprintf("Failed to create watcher: %v", err))
-	}
 	ctx, cancel := context.WithCancel(context.Background())
 	return &testContext{
 		dir:           dir,
-		watcher:       w,
-		formatter:     formatter.NewDefaultFormatter(),
-		events:        make(chan watcher.Event, 10),
 		ctx:           ctx,
 		cancel:        cancel,
-		cmdDone:       make(chan struct{}), // チャネルを初期化
+		cmdDone:       make(chan struct{}),
 		stdoutCapture: &bytes.Buffer{},
 		stderrCapture: &bytes.Buffer{},
 	}
@@ -66,66 +84,19 @@ func (tc *testContext) cleanup() {
 	if tc.cancel != nil {
 		tc.cancel()
 	}
-	// コマンド完了を待機
+	// Kill the process if still running
+	if tc.cmd != nil && tc.cmd.Process != nil {
+		tc.cmd.Process.Kill()
+	}
+	// Wait for command completion
 	select {
 	case <-tc.cmdDone:
-		// 正常に終了した場合
+		// Normal exit
 	case <-time.After(2 * time.Second):
-		// タイムアウトした場合
-	}
-	tc.wg.Wait() // goroutineの終了を待つ
-	// 標準出力と標準エラー出力を元に戻す
-	tc.restoreStdoutAndStderr()
-	if tc.watcher != nil {
-		tc.watcher.Close()
+		// Timeout
 	}
 	if tc.dir != "" {
 		os.RemoveAll(tc.dir)
-	}
-}
-
-// 標準出力と標準エラー出力をキャプチャするための準備
-func (tc *testContext) captureStdoutAndStderr() {
-	// 標準出力のキャプチャ
-	tc.origStdout = os.Stdout
-	tc.stdoutReader, tc.stdoutWriter, _ = os.Pipe()
-	os.Stdout = tc.stdoutWriter
-	// 標準エラー出力のキャプチャ
-	tc.origStderr = os.Stderr
-	tc.stderrReader, tc.stderrWriter, _ = os.Pipe()
-	os.Stderr = tc.stderrWriter
-	// キャプチャ開始
-	tc.stdoutCapture.Reset()
-	tc.stderrCapture.Reset()
-	// 別goroutineでパイプから読み取り
-	tc.wg.Add(2)
-	go func() {
-		defer tc.wg.Done()
-		io.Copy(tc.stdoutCapture, tc.stdoutReader)
-	}()
-	go func() {
-		defer tc.wg.Done()
-		io.Copy(tc.stderrCapture, tc.stderrReader)
-	}()
-}
-
-// 標準出力と標準エラー出力を元に戻す
-func (tc *testContext) restoreStdoutAndStderr() {
-	if tc.stdoutWriter != nil {
-		tc.stdoutWriter.Close()
-		tc.stdoutWriter = nil
-	}
-	if tc.stderrWriter != nil {
-		tc.stderrWriter.Close()
-		tc.stderrWriter = nil
-	}
-	if tc.origStdout != nil {
-		os.Stdout = tc.origStdout
-		tc.origStdout = nil
-	}
-	if tc.origStderr != nil {
-		os.Stderr = tc.origStderr
-		tc.origStderr = nil
 	}
 }
 
@@ -160,90 +131,87 @@ func (tc *testContext) waitForContent(want string, timeout time.Duration) error 
 }
 
 func (tc *testContext) executeWampaCommand(command string) error {
-	// 標準出力と標準エラー出力をキャプチャ
-	tc.captureStdoutAndStderr()
-	// コマンドを分割して引数を取得
+	// Reset capture buffers
+	tc.stdoutCapture.Reset()
+	tc.stderrCapture.Reset()
+	tc.cmdDone = make(chan struct{})
+
+	// Parse command arguments
 	args := strings.Fields(command)
 	if len(args) < 1 || args[0] != "wampa" {
 		return fmt.Errorf("invalid command: %s", command)
 	}
 
-	// wampaコマンドの部分を除外
+	// Build command arguments
 	cmdArgs := []string{}
-	// 引数の変換: 相対パスをテストディレクトリの絶対パスに変換
-	i := 1 // wampa の後から処理開始
+	i := 1 // Start after "wampa"
 	for i < len(args) {
 		switch args[i] {
 		case "-i":
-			// 入力ファイル指定
 			cmdArgs = append(cmdArgs, "-i")
 			i++
-			// 複数のファイルが指定されている可能性があるため、次の"-"で始まるオプションが来るまで処理
+			// Handle multiple input files
 			for i < len(args) && !strings.HasPrefix(args[i], "-") {
-				// 相対パスを絶対パスに変換
 				absPath := filepath.Join(tc.dir, args[i])
 				cmdArgs = append(cmdArgs, absPath)
 				i++
 			}
 		case "-o":
-			// 出力ファイル指定
 			cmdArgs = append(cmdArgs, "-o")
 			i++
 			if i < len(args) {
-				// 出力ファイルのパスを絶対パスに変換
 				tc.outputPath = filepath.Join(tc.dir, args[i])
 				cmdArgs = append(cmdArgs, tc.outputPath)
 				i++
 			}
 		case "-h", "--help":
-			// ヘルプフラグはそのまま渡す
 			cmdArgs = append(cmdArgs, args[i])
 			i++
 		default:
-			// その他のオプションはそのままコピー
 			cmdArgs = append(cmdArgs, args[i])
 			i++
 		}
 	}
 
-	// デバッグ用
-	fmt.Printf("処理後の引数: %v\n", cmdArgs)
-	fmt.Printf("出力ファイル: %s\n", tc.outputPath)
+	// Create command with context
+	tc.cmd = exec.CommandContext(tc.ctx, binaryPath, cmdArgs...)
+	tc.cmd.Dir = tc.dir
+	tc.cmd.Stdout = tc.stdoutCapture
+	tc.cmd.Stderr = tc.stderrCapture
 
-	// 別goroutineでRun関数を実行
-	tc.wg.Add(1)
+	// Run command in goroutine
 	go func() {
-		defer tc.wg.Done()
-		defer close(tc.cmdDone) // 実行完了を通知
-		// run関数を実行してwampaコマンドを実行
-		tc.cmdError = wampa.Run(tc.ctx, cmdArgs)
-		// パイプを閉じて、キャプチャ用goroutineが終了できるようにする
-		tc.stdoutWriter.Close()
-		tc.stderrWriter.Close()
+		defer close(tc.cmdDone)
+		err := tc.cmd.Run()
+		tc.cmdError = err
+		if exitErr, ok := err.(*exec.ExitError); ok {
+			tc.exitCode = exitErr.ExitCode()
+		} else if err == nil {
+			tc.exitCode = 0
+		}
 	}()
 
-	// コマンド開始待機
+	// Wait for command to start
 	time.Sleep(500 * time.Millisecond)
 	return nil
 }
 
-// カレントディレクトリにwampa.tomlが存在しない状態でコマンドを実行
+// Execute wampa command without config file
 func (tc *testContext) executeWampaCommandWithoutConfig(command string) error {
-	// wampa.tomlが存在しないことを確認
-	configPath := filepath.Join(tc.dir, "wampa.toml")
+	configPath := filepath.Join(tc.dir, "wampa.json")
 	if _, err := os.Stat(configPath); err == nil {
 		os.Remove(configPath)
 	}
 	return tc.executeWampaCommand(command)
 }
 
-// パラメータなしでwampaを実行
+// Execute wampa with no params
 func (tc *testContext) executeWampaWithNoParams(docString *godog.DocString) error {
 	return tc.executeWampaCommand(docString.Content)
 }
 
 func (tc *testContext) outputFileContains(content string) error {
-	// TODO: 一時的にコメントアウト
+	// TODO: temporarily commented out
 	// return tc.checkFileContent(tc.outputPath, content)
 	return nil
 }
@@ -264,12 +232,10 @@ func (tc *testContext) outputFileDoesNotExist(filename string) error {
 	return nil
 }
 
-// 以下のヘルプメッセージが表示されることを確認
+// Verify help message is displayed
 func (tc *testContext) helpMessageIsDisplayed(expected string) error {
-	// 標準出力の内容を確認
 	output := tc.stdoutCapture.String()
 
-	// 期待されるメッセージが含まれているか確認（改行を正規化して比較）
 	expectedNormalized := strings.ReplaceAll(expected, "\r\n", "\n")
 	outputNormalized := strings.ReplaceAll(output, "\r\n", "\n")
 
@@ -280,12 +246,10 @@ func (tc *testContext) helpMessageIsDisplayed(expected string) error {
 	return nil
 }
 
-// 以下のエラーメッセージが表示されることを確認
+// Verify error message is displayed
 func (tc *testContext) errorMessageIsDisplayed(expected string) error {
-	// 標準エラー出力の内容を確認
 	errorOutput := tc.stderrCapture.String()
 
-	// 期待されるメッセージが含まれているか確認（改行を正規化して比較）
 	expectedNormalized := strings.ReplaceAll(expected, "\r\n", "\n")
 	errorNormalized := strings.ReplaceAll(errorOutput, "\r\n", "\n")
 
@@ -296,19 +260,32 @@ func (tc *testContext) errorMessageIsDisplayed(expected string) error {
 	return nil
 }
 
-// プロセスがゼロの終了コードで終了することを確認
+// Verify process exits with zero code
 func (tc *testContext) processExitsWithZeroCode() error {
-	// コマンドの実行が正常に終了したか確認
-	if tc.cmdError != nil {
-		return fmt.Errorf("process exited with error: %v", tc.cmdError)
+	// Wait for command to finish
+	select {
+	case <-tc.cmdDone:
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout waiting for process to exit")
+	}
+
+	if tc.exitCode != 0 {
+		return fmt.Errorf("process exited with code %d, expected 0.\nStderr: %s",
+			tc.exitCode, tc.stderrCapture.String())
 	}
 	return nil
 }
 
-// プロセスが非ゼロの終了コードで終了することを確認
+// Verify process exits with non-zero code
 func (tc *testContext) processExitsWithNonZeroCode() error {
-	// コマンドの実行がエラーで終了したか確認
-	if tc.cmdError == nil {
+	// Wait for command to finish
+	select {
+	case <-tc.cmdDone:
+	case <-time.After(5 * time.Second):
+		return fmt.Errorf("timeout waiting for process to exit")
+	}
+
+	if tc.exitCode == 0 {
 		return fmt.Errorf("process exited with zero code but expected non-zero")
 	}
 	return nil
