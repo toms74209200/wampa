@@ -1,0 +1,34 @@
+name: Job - Build
+
+on:
+  workflow_call:
+
+jobs:
+  build:
+    name: Build Binary
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    strategy:
+      matrix:
+        goos: [linux]
+        goarch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.4'
+          cache: true
+
+      - name: Build
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: go build -ldflags="-s -w" -o wampa-${{ matrix.goos }}-${{ matrix.goarch }} .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: wampa-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: wampa-${{ matrix.goos }}-${{ matrix.goarch }}
