@@ -1,13 +1,13 @@
-name: Test - Medium
+name: Job - Test Large
 
 on:
   workflow_call:
 
 jobs:
   test:
-    name: Run Medium Tests
+    name: Run Large Tests
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: tests/acceptance
@@ -23,5 +23,5 @@ jobs:
       - name: Tidy dependencies
         run: go mod tidy
 
-      - name: Run medium tests
-        run: go test -tags=medium ./...
+      - name: Run large tests
+        run: go test -tags=large ./...

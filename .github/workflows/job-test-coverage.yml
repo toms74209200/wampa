@@ -1,4 +1,4 @@
-name: Test - Coverage
+name: Job - Test Coverage
 
 on:
   workflow_call:
