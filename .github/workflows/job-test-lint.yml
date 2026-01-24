@@ -1,4 +1,4 @@
-name: Test - Lint and Format
+name: Job - Test Lint and Format
 
 on:
   workflow_call:
